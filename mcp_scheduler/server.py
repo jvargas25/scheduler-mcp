@@ -5,6 +5,7 @@ import logging
 import sys
 import json
 import re
+import os
 import platform
 from typing import Dict, List, Any, Optional
 
@@ -102,7 +103,6 @@ class SchedulerServer:
         # Create MCP server with custom response formatting
         self.mcp = CustomFastMCP(
             config.server_name,
-            version=config.server_version,
             dependencies=[
                 "croniter",
                 "pydantic",
@@ -458,14 +458,14 @@ class SchedulerServer:
         
         try:
             # For FastMCP, only valid transport options are "stdio" or "sse"
+            # Port configuration is handled via environment variables for SSE
             if self.config.transport == "stdio":
                 self.mcp.run(transport="stdio")
             else:
-                self.mcp.run(
-                    transport="sse",
-                    host=self.config.server_address,
-                    port=self.config.server_port
-                )
+                # SSE transport will use PORT and UVICORN_PORT environment variables
+                os.environ["PORT"] = str(self.config.server_port)
+                os.environ["UVICORN_PORT"] = str(self.config.server_port)
+                self.mcp.run(transport="sse")
         except Exception as e:
             logger.error(f"Error starting MCP server: {e}")
             print(f"Error starting MCP server: {e}", file=sys.stderr)
